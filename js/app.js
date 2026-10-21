@@ -121,6 +121,24 @@
     await DB.putMany('documents', demo.documents.map(({ blob, ...meta }) => meta));
     await DB.putMany('blobs', demo.documents.map((d) => ({ id: d.id, blob: d.blob })));
     store.set('fi-seeded', '1');
+    store.set('fi-demo-version', String(window.DEMO_VERSION));
+  }
+
+  // Ältere Demo-Daten im Browser: nur die Umrisse der Demo-Flurstücke ersetzen, eigene Einträge bleiben
+  const NEW_DEMO_IDS = ['demo-L']; // in Version 2 neu hinzugekommen
+  async function migrateDemo() {
+    if (!store.get('fi-seeded') || store.get('fi-demo-version') === String(window.DEMO_VERSION)) return false;
+    const demo = buildDemoData();
+    const existing = new Map((await DB.getAll('parcels')).map((p) => [p.id, p]));
+    const changed = [];
+    for (const d of demo.parcels) {
+      const p = existing.get(d.id);
+      if (p) changed.push({ ...p, geometry: d.geometry, flaeche: d.flaeche, lage: d.lage, nutzung: d.nutzung, flurstueck: d.flurstueck, updatedAt: new Date().toISOString() });
+      else if (NEW_DEMO_IDS.includes(d.id) && [...existing.keys()].some((id) => id.startsWith('demo-'))) changed.push(d);
+    }
+    await DB.putMany('parcels', changed);
+    store.set('fi-demo-version', String(window.DEMO_VERSION));
+    return changed.length > 0;
   }
 
   async function saveParcel(p) {
@@ -1132,7 +1150,9 @@
     bindEvents();
     try {
       if (!store.get('fi-seeded') && !(await DB.getAll('parcels')).length) await seedDemo();
+      const migrated = await migrateDemo();
       await loadAll();
+      if (migrated) setTimeout(() => toast('Demo-Flurstücke wurden an die amtlichen Grenzen angepasst.'), 600);
     } catch (err) {
       console.error(err);
       toast('Lokale Datenbank nicht verfügbar: ' + err.message);

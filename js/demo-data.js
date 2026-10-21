@@ -1,18 +1,20 @@
-/* Fiktive Demo-Daten. Die Umrisse sind grob aus dem BayernAtlas-Ausschnitt nachgezeichnet;
+/* Fiktive Demo-Daten. Die Umrisse sind entlang der amtlichen Flurstücksgrenzen (Parzellarkarte) nachgezeichnet;
    Nummern, Namen und Kontaktdaten sind frei erfunden. */
+window.DEMO_VERSION = 2; // erhöhen, wenn sich die Demo-Umrisse ändern
 window.buildDemoData = function () {
   const G = {
-    A: [[12.5586585, 48.9394579], [12.5628178, 48.9396329], [12.5628762, 48.9392499], [12.5586523, 48.9390698]],
-    B: [[12.5586523, 48.9390698], [12.5628762, 48.9392499], [12.5628919, 48.9388682], [12.5586247, 48.9386824]],
-    C: [[12.5586009, 48.9380479], [12.5629001, 48.9382326], [12.5629362, 48.9367844], [12.558478, 48.9369222]],
-    D: [[12.5630226, 48.9394995], [12.5668978, 48.9397466], [12.5669968, 48.9388823], [12.5630818, 48.938827]],
-    E: [[12.5631353, 48.9388254], [12.5670503, 48.9388807], [12.567066, 48.9383508], [12.5631511, 48.9382955]],
-    F: [[12.5710137, 48.9400638], [12.5721559, 48.9398519], [12.5726413, 48.9376486], [12.5711854, 48.9375172]],
-    G: [[12.5583248, 48.935974], [12.5628175, 48.9358704], [12.5626775, 48.9349571], [12.55823, 48.9350945]],
-    H: [[12.5647329, 48.9371877], [12.5668253, 48.9372288], [12.566836, 48.9366284], [12.5647472, 48.9366366]],
-    I: [[12.5672838, 48.9368969], [12.5693736, 48.9369028], [12.5692202, 48.9347545], [12.567133, 48.9347839]],
-    J: [[12.5584359, 48.9367823], [12.5629048, 48.9366442], [12.5628251, 48.9359761], [12.5583619, 48.9360434]],
-    K: [[12.567122, 48.9383843], [12.5679874, 48.9384987], [12.5680824, 48.9375781], [12.5671737, 48.9376062]],
+    A: [[12.5649975,48.9414372], [12.568467,48.9416183], [12.5685066,48.9411532], [12.5650583,48.9409581]],
+    B: [[12.5650583,48.9409581], [12.5685066,48.9411532], [12.5685681,48.9407586], [12.5650984,48.9405635]],
+    C: [[12.560884,48.9348874], [12.565273,48.9348988], [12.5649833,48.9332644], [12.5606156,48.9332389]],
+    D: [[12.565343,48.938802], [12.569412,48.9389685], [12.5695151,48.9384048], [12.5654892,48.9382664]],
+    E: [[12.565551,48.9379282], [12.5695555,48.9380666], [12.5696178,48.9377847], [12.5656344,48.937604]],
+    F: [[12.5734884,48.940206], [12.5744503,48.939994], [12.5749706,48.9378519], [12.5740709,48.937782]],
+    G: [[12.560869,48.9358034], [12.5653222,48.9358147], [12.5652944,48.9348988], [12.560884,48.9348874]],
+    H: [[12.5698051,48.9370096], [12.5718605,48.9370365], [12.5718506,48.9356133], [12.5697947,48.93553]],
+    I: [[12.5722891,48.9370926], [12.5730816,48.9371344], [12.5730663,48.9349503], [12.572274,48.9349226]],
+    J: [[12.5744503,48.939994], [12.5749203,48.9398528], [12.5753463,48.9395426], [12.5757719,48.9391618], [12.5759354,48.9380485], [12.5749706,48.9378519]],
+    K: [[12.5686579,48.9413645], [12.5725127,48.9415171], [12.5725954,48.9410943], [12.5686548,48.9409136]],
+    L: [[12.5686548,48.9409136], [12.5725954,48.9410943], [12.5726361,48.9407984], [12.568674,48.9406036]],
   };
   const poly = (k) => ({ type: 'Polygon', coordinates: [[...G[k], G[k][0]]] });
   const now = new Date().toISOString();
@@ -35,9 +37,9 @@ window.buildDemoData = function () {
   const c = (id, role, name, extra = {}) => ({ id, role, name, address: '', phone: '', email: '', note: '', ...extra });
 
   const parcels = [
-    p('A', { flurstueck: '1203', kategorie: 'eigen', status: 'reserve', nutzung: 'Ackerland', lage: 'Am Kiesweiher Nord', grundbuch: 'Blatt 2211', notiz: 'Reservefläche für Erweiterung Abbauabschnitt III. Kiesmächtigkeit lt. Bohrung ca. 9 m.' }),
+    p('A', { flurstueck: '1203', kategorie: 'eigen', status: 'reserve', nutzung: 'Ackerland', lage: 'Nordfeld', grundbuch: 'Blatt 2211', notiz: 'Reservefläche für Erweiterung Abbauabschnitt III. Kiesmächtigkeit lt. Bohrung ca. 9 m.' }),
     p('B', {
-      flurstueck: '1204', kategorie: 'fremd', status: 'offen', nutzung: 'Ackerland', lage: 'Am Kiesweiher Nord',
+      flurstueck: '1204', kategorie: 'fremd', status: 'offen', nutzung: 'Ackerland', lage: 'Nordfeld',
       contacts: [c('c1', 'Eigentümer', 'Josef Huber', { address: 'Dorfstraße 4, 94300 Musterau', phone: '09421 000111' })],
       notiz: 'Liegt zwischen eigenen Flächen – strategisch wichtig.',
     }),
@@ -49,8 +51,8 @@ window.buildDemoData = function () {
       ],
       notiz: 'Gute Kieslage. Kaufpreisvorstellung der Erben liegt über Gutachten.',
     }),
-    p('D', { flurstueck: '1188/2', kategorie: 'eigen', status: 'abbau', nutzung: 'Gewässer / Baggersee', lage: 'Baggersee West', grundbuch: 'Blatt 1987', notiz: 'Nassabbau aktiv, Genehmigung bis 2031.' }),
-    p('E', { flurstueck: '1188/3', kategorie: 'eigen', status: 'abbau', nutzung: 'Gewässer / Baggersee', lage: 'Baggersee West', grundbuch: 'Blatt 1987' }),
+    p('D', { flurstueck: '1188/2', kategorie: 'eigen', status: 'abbau', nutzung: 'Gewässer / Baggersee', lage: 'Baggersee Mitte', grundbuch: 'Blatt 1987', notiz: 'Nassabbau aktiv, Genehmigung bis 2031.' }),
+    p('E', { flurstueck: '1188/3', kategorie: 'eigen', status: 'abbau', nutzung: 'Gewässer / Baggersee', lage: 'Baggersee Mitte', grundbuch: 'Blatt 1987' }),
     p('F', {
       flurstueck: '1240', kategorie: 'fremd', status: 'angefragt', nutzung: 'Ackerland', lage: 'Ostfeld',
       contacts: [c('c4', 'Eigentümer', 'Landwirtschaft Gruber GbR – Herr Franz Gruber', { address: 'Hofweg 1, 94300 Musterau', phone: '09421 000444' })],
@@ -59,17 +61,18 @@ window.buildDemoData = function () {
       flurstueck: '1172', kategorie: 'fremd', status: 'verkaufsbereit', nutzung: 'Ackerland', lage: 'Südfeld',
       contacts: [c('c5', 'Eigentümer', 'Anna Schmid', { address: 'Bahnhofstr. 7, 94315 Straubing', email: 'a.schmid@example.org' })],
     }),
-    p('H', { flurstueck: '1190', kategorie: 'eigen', status: 'rekultiviert', nutzung: 'Gewässer / Baggersee', lage: 'Biotopweiher', notiz: 'Als Ausgleichsfläche rekultiviert (Bescheid LRA 2019).' }),
+    p('H', { flurstueck: '1190', kategorie: 'eigen', status: 'rekultiviert', nutzung: 'Gewässer / Baggersee', lage: 'Biotopweiher Ost', notiz: 'Als Ausgleichsfläche rekultiviert (Bescheid LRA 2019).' }),
     p('I', {
-      flurstueck: '1195', kategorie: 'eigen', status: 'verpachtet', nutzung: 'Gewässer / Baggersee', lage: 'Fischweiher Süd',
+      flurstueck: '1195', kategorie: 'eigen', status: 'verpachtet', nutzung: 'Gewässer / Baggersee', lage: 'Fischweiher Ost',
       contacts: [c('c6', 'Pächter', 'Fischereiverein Musterau e. V. – 1. Vorstand K. Weber', { phone: '0151 0000555' })],
       notiz: 'Pachtvertrag läuft bis 31.12.2028.',
     }),
     p('J', {
-      flurstueck: '1171', kategorie: 'fremd', status: 'abgelehnt', nutzung: 'Grünland', lage: 'Südfeld',
+      flurstueck: '1241', kategorie: 'fremd', status: 'abgelehnt', nutzung: 'Ackerland', lage: 'Ostfeld',
       contacts: [c('c7', 'Eigentümer', 'Stefan Bauer', { address: 'Am Anger 3, 94300 Musterau', phone: '09421 000666' })],
     }),
-    p('K', { flurstueck: '1189/1', kategorie: 'eigen', status: 'geplant', nutzung: 'Grünland', lage: 'Ostufer', notiz: 'Abbauantrag in Vorbereitung.' }),
+    p('K', { flurstueck: '1205', kategorie: 'eigen', status: 'geplant', nutzung: 'Ackerland', lage: 'Nordfeld', notiz: 'Abbauantrag in Vorbereitung.' }),
+    p('L', { flurstueck: '1206', kategorie: 'eigen', status: 'abbau', nutzung: 'Betriebsfläche', lage: 'Betriebsgelände Kieswerk', grundbuch: 'Blatt 1987', notiz: 'Aufbereitungsanlage, Kieslager und Waage.' }),
   ];
 
   const cm = (id, parcelKey, date, type, author, text, followUp = '', followUpDone = false) =>
