@@ -14,6 +14,14 @@ Es ist kein Server und keine Installation nötig:
 Beim ersten Start werden fiktive Demo-Daten (Region Straubing, „Gemarkung Musterau“) geladen.
 Über **Daten ▾ → Alle Daten löschen** startet man mit einem leeren Bestand.
 
+## Online ansehen
+
+- **Mit voller Karte (GitHub Pages):** Im Repository unter *Settings → Pages* bei „Build and deployment“
+  *Deploy from a branch* wählen, Branch `claude/optimistic-dijkstra-2gegxu`, Ordner `/ (root)`, speichern.
+  Nach 1–2 Minuten läuft die App unter <https://anobdrmras.github.io/Geodata/>.
+- **Vorschau auf claude.ai:** Dort funktionieren alle Funktionen außer dem Kartenhintergrund (Luftbild und
+  Flurstücksgrenzen), weil die Seite keine Kacheln von fremden Servern laden darf.
+
 ## Funktionen
 
 | Bereich | Was geht |

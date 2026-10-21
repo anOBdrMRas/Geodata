@@ -20,6 +20,33 @@
   const parcelTitle = (p) => `Flst. ${p.flurstueck || '?'}`;
   const mainContact = (p) => (p.contacts && p.contacts[0] ? p.contacts[0].name : '');
 
+  // localStorage kann in manchen Umgebungen gesperrt sein
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* egal */ } },
+  };
+
+  // Eigener Bestätigungsdialog (Browser-Dialoge sind in eingebetteten Seiten oft blockiert)
+  function ask(message, { ok = 'OK', cancel = 'Abbrechen', danger = false, title = 'Bitte bestätigen' } = {}) {
+    return new Promise((resolve) => {
+      const bd = $('#ask-backdrop');
+      $('#ask-title').textContent = title;
+      $('#ask-text').textContent = message;
+      const okBtn = $('#ask-ok'), cancelBtn = $('#ask-cancel');
+      okBtn.textContent = ok;
+      cancelBtn.textContent = cancel;
+      okBtn.classList.toggle('danger-fill', danger);
+      bd.classList.remove('hidden');
+      okBtn.focus();
+      const done = (v) => { bd.classList.add('hidden'); okBtn.onclick = cancelBtn.onclick = bd.onclick = null; document.removeEventListener('keydown', onKey, true); resolve(v); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+      document.addEventListener('keydown', onKey, true);
+      okBtn.onclick = () => done(true);
+      cancelBtn.onclick = () => done(false);
+      bd.onclick = (e) => { if (e.target === bd) done(null); };
+    });
+  }
+
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg;
@@ -28,8 +55,21 @@
     toast._t = setTimeout(() => t.classList.add('hidden'), 2800);
   }
 
-  function download(name, content, type) {
+  // Auf claude.ai laufen Downloads über die freigegebene Funktion „downloads“, sonst über einen normalen Link
+  let claudeDownloads;
+  async function download(name, content, type) {
     const blob = content instanceof Blob ? content : new Blob([content], { type });
+    if (window.claude && window.claude.use) {
+      if (claudeDownloads === undefined) claudeDownloads = await window.claude.use('downloads').catch(() => null);
+      if (claudeDownloads) {
+        try { await claudeDownloads.save({ filename: name, data: blob }); }
+        catch (err) {
+          if (err && err.code === 'rejected_extension') toast('Dieser Dateityp kann hier nicht heruntergeladen werden.');
+          else if (err && err.code !== 'declined') toast('Download nicht möglich.');
+        }
+        return;
+      }
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -80,7 +120,7 @@
     await DB.putMany('comments', demo.comments);
     await DB.putMany('documents', demo.documents.map(({ blob, ...meta }) => meta));
     await DB.putMany('blobs', demo.documents.map((d) => ({ id: d.id, blob: d.blob })));
-    localStorage.setItem('fi-seeded', '1');
+    store.set('fi-seeded', '1');
   }
 
   async function saveParcel(p) {
@@ -120,6 +160,11 @@
       if (def.featureInfo) wmsOverlays.push({ def, layer: l });
       if (def.default) l.addTo(map);
     });
+    // Hinweis, wenn Kartendienste nicht laden (z. B. offline oder gesperrt)
+    let tileErrors = 0;
+    Object.values({ ...bases, ...overlays }).forEach((l) => l.on('tileerror', () => {
+      if (++tileErrors === 6) $('#tile-warning').classList.remove('hidden');
+    }));
     parcelLayer = L.featureGroup().addTo(map);
     overlays['Erfasste Flurstücke'] = parcelLayer;
     layerControl = L.control.layers(bases, overlays, { collapsed: true, position: 'topright' }).addTo(map);
@@ -527,7 +572,7 @@
     }
 
     // Verlauf
-    const author = localStorage.getItem('fi-author') || '';
+    const author = store.get('fi-author') || '';
     return `
       <form class="comment-form" id="comment-form">
         <div class="grid2">
@@ -605,7 +650,7 @@
 
   function openParcelForm(parcel, geometry) {
     const isNew = !parcel;
-    const p = parcel || { kategorie: 'fremd', status: 'offen', gemarkung: localStorage.getItem('fi-last-gemarkung') || (state.parcels[0] || {}).gemarkung || '', contacts: [] };
+    const p = parcel || { kategorie: 'fremd', status: 'offen', gemarkung: store.get('fi-last-gemarkung') || (state.parcels[0] || {}).gemarkung || '', contacts: [] };
     const area = geometry ? Math.round(UTM.geometryArea(geometry)) : p.flaeche;
     openForm({
       title: isNew ? 'Neues Flurstück erfassen' : `${parcelTitle(p)} bearbeiten`,
@@ -633,7 +678,7 @@
         const obj = { ...p, ...v, flaeche: Number(v.flaeche) || 0, id: p.id || uid(), createdAt: p.createdAt || now };
         if (geometry) obj.geometry = geometry;
         await saveParcel(obj);
-        localStorage.setItem('fi-last-gemarkung', v.gemarkung);
+        store.set('fi-last-gemarkung', v.gemarkung);
         state.selectedId = obj.id;
         state.drawerTab = isNew && obj.kategorie === 'fremd' ? 'contacts' : (state.drawerTab || 'overview');
         renderAll();
@@ -664,7 +709,7 @@
   }
 
   function openCommentForm(p, comment, preset = {}) {
-    const c = comment || { date: today(), type: 'Telefonat', author: localStorage.getItem('fi-author') || '', ...preset };
+    const c = comment || { date: today(), type: 'Telefonat', author: store.get('fi-author') || '', ...preset };
     openForm({
       title: comment ? 'Eintrag bearbeiten' : `Kontakt protokollieren – ${parcelTitle(p)}`,
       fields: [
@@ -684,7 +729,7 @@
           Object.assign(comment, v);
           await DB.put('comments', comment);
         }
-        if (v.author) localStorage.setItem('fi-author', v.author);
+        if (v.author) store.set('fi-author', v.author);
         renderAll();
       },
     });
@@ -738,15 +783,29 @@
     const rec = await DB.get('blobs', id);
     if (!rec) { toast('Dateiinhalt nicht gefunden.'); return; }
     if (asDownload) { download(meta.name, rec.blob); return; }
-    const url = URL.createObjectURL(rec.blob);
-    const w = window.open(url, '_blank');
-    if (!w) download(meta.name, rec.blob);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    showPreview(meta, rec.blob);
+  }
+
+  // Dokumentvorschau direkt in der App (Bilder, PDF, Text)
+  let previewUrl = null;
+  async function showPreview(meta, blob) {
+    const bd = $('#preview-backdrop');
+    const body = $('#preview-body');
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(blob);
+    $('#preview-title').textContent = meta.name;
+    const mime = meta.mime || blob.type || '';
+    if (mime.startsWith('image/')) body.innerHTML = `<img src="${previewUrl}" alt="${esc(meta.name)}">`;
+    else if (mime === 'application/pdf') body.innerHTML = `<iframe src="${previewUrl}" title="${esc(meta.name)}"></iframe>`;
+    else if (mime.startsWith('text/') || /json|xml|csv/.test(mime)) body.innerHTML = `<pre>${esc(await blob.text())}</pre>`;
+    else body.innerHTML = `<p class="empty">Für diesen Dateityp gibt es keine Vorschau. Bitte über „Herunterladen“ öffnen.</p>`;
+    $('#preview-dl').onclick = () => download(meta.name, blob);
+    bd.classList.remove('hidden');
   }
 
   // ---------- Löschen / Erwerb ----------
   async function deleteParcel(p) {
-    if (!confirm(`${parcelTitle(p)} mit allen Kontakten, Dokumenten und Verlaufseinträgen löschen?`)) return;
+    if (!(await ask(`${parcelTitle(p)} mit allen Kontakten, Dokumenten und Verlaufseinträgen löschen?`, { ok: 'Löschen', danger: true }))) return;
     for (const c of commentsOf(p.id)) await DB.del('comments', c.id);
     for (const d of docsOf(p.id)) { await DB.del('documents', d.id); await DB.del('blobs', d.id); }
     await DB.del('parcels', p.id);
@@ -774,7 +833,7 @@
         p.status = v.status;
         p.contacts = prev.map((c) => ({ ...c, role: c.role === 'Eigentümer' ? 'Voreigentümer' : c.role }));
         await saveParcel(p);
-        const obj = { id: uid(), parcelId: p.id, date: v.date, type: 'Notiz', author: localStorage.getItem('fi-author') || '', text: v.text, followUp: '', followUpDone: false, createdAt: new Date().toISOString() };
+        const obj = { id: uid(), parcelId: p.id, date: v.date, type: 'Notiz', author: store.get('fi-author') || '', text: v.text, followUp: '', followUpDone: false, createdAt: new Date().toISOString() };
         await DB.put('comments', obj);
         state.comments.push(obj);
         // offene Wiedervorlagen schließen
@@ -812,7 +871,7 @@
   async function importBackup(file) {
     const data = JSON.parse(await file.text());
     if (data.app !== 'flurstueck-inventar') throw new Error('Keine gültige Sicherungsdatei.');
-    if (!confirm('Aktuelle Daten durch die Sicherung ersetzen?')) return;
+    if (!(await ask('Aktuelle Daten durch die Sicherung ersetzen?', { ok: 'Ersetzen', danger: true }))) return;
     await DB.clearAll();
     await DB.putMany('parcels', data.parcels || []);
     await DB.putMany('comments', data.comments || []);
@@ -836,7 +895,7 @@
         properties: { flurstueck: p.flurstueck, gemarkung: p.gemarkung, kategorie: p.kategorie, status: statusOf(p).label, flaeche_m2: p.flaeche, lage: p.lage, nutzung: p.nutzung, eigentuemer: mainContact(p) },
       })),
     };
-    download(`flurstuecke-${today()}.geojson`, JSON.stringify(fc, null, 1), 'application/geo+json');
+    download(`flurstuecke-${today()}.geo.json`, JSON.stringify(fc, null, 1), 'application/geo+json');
   }
 
   // Import z. B. aus QGIS (ALKIS-Daten als GeoJSON in WGS84 / EPSG:4326 exportiert)
@@ -904,10 +963,10 @@
   // ---------- Ereignisse ----------
   function bindEvents() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
-    $('#btn-new').addEventListener('click', () => {
-      if (confirm('Umriss des Flurstücks jetzt auf der Karte einzeichnen?\n\nOK = Umriss zeichnen · Abbrechen = nur Daten erfassen')) {
-        startDraw({ onDone: (geom) => openParcelForm(null, geom) });
-      } else openParcelForm(null, null);
+    $('#btn-new').addEventListener('click', async () => {
+      const r = await ask('Soll der Umriss des Flurstücks jetzt auf der Karte eingezeichnet werden?', { title: 'Neues Flurstück', ok: 'Umriss zeichnen', cancel: 'Nur Daten erfassen' });
+      if (r === true) startDraw({ onDone: (geom) => openParcelForm(null, geom) });
+      else if (r === false) openParcelForm(null, null);
     });
 
     // Daten-Menü
@@ -927,12 +986,12 @@
           const f = fileInput.files[0];
           fileInput.value = '';
           if (!f) return;
-          try { act === 'import-backup' ? await importBackup(f) : await importGeoJSON(f); } catch (err) { alert('Import fehlgeschlagen: ' + err.message); }
+          try { act === 'import-backup' ? await importBackup(f) : await importGeoJSON(f); } catch (err) { ask('Import fehlgeschlagen: ' + err.message, { title: 'Import', ok: 'OK', cancel: 'Schließen' }); }
         };
         fileInput.click();
       }
-      if (act === 'reset-demo' && confirm('Alle Daten durch die Demo-Daten ersetzen?')) { await seedDemo(); await loadAll(); state.selectedId = null; setDrawerOpen(false); renderAll(); fitAll(); toast('Demo-Daten geladen.'); }
-      if (act === 'clear-all' && confirm('Wirklich ALLE Flurstücke, Dokumente und Einträge löschen?')) { await DB.clearAll(); await loadAll(); state.selectedId = null; setDrawerOpen(false); renderAll(); toast('Alle Daten gelöscht.'); }
+      if (act === 'reset-demo' && await ask('Alle Daten durch die Demo-Daten ersetzen?', { ok: 'Ersetzen', danger: true })) { await seedDemo(); await loadAll(); state.selectedId = null; setDrawerOpen(false); renderAll(); fitAll(); toast('Demo-Daten geladen.'); }
+      if (act === 'clear-all' && await ask('Wirklich ALLE Flurstücke, Dokumente und Einträge löschen?', { ok: 'Alles löschen', danger: true })) { await DB.clearAll(); await loadAll(); state.selectedId = null; setDrawerOpen(false); renderAll(); toast('Alle Daten gelöscht.'); }
     });
 
     // Liste
@@ -978,12 +1037,18 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (!$('#modal-backdrop').classList.contains('hidden')) closeModal();
+        if (!$('#preview-backdrop').classList.contains('hidden')) $('#preview-backdrop').classList.add('hidden');
+        else if (!$('#modal-backdrop').classList.contains('hidden')) closeModal();
         else if (draw.active) endDraw();
         else if (state.selectedId) hideDrawer();
       }
       if (e.key === 'Enter' && draw.active) finishDraw();
     });
+
+    // Vorschau
+    $('#preview-close').addEventListener('click', () => $('#preview-backdrop').classList.add('hidden'));
+    $('#preview-backdrop').addEventListener('click', (e) => { if (e.target.id === 'preview-backdrop') e.target.classList.add('hidden'); });
+    $('#tile-warning-close').addEventListener('click', () => $('#tile-warning').classList.add('hidden'));
 
     // Dialog
     $('#modal-close').addEventListener('click', closeModal);
@@ -1009,7 +1074,7 @@
         startDraw({ onDone: async (geom) => {
           p.geometry = geom;
           const area = Math.round(UTM.geometryArea(geom));
-          if (!p.flaeche || confirm(`Fläche aus neuem Umriss übernehmen? (${fmtArea(area)})`)) p.flaeche = area;
+          if (!p.flaeche || await ask(`Fläche aus dem neuen Umriss übernehmen? (${fmtArea(area)})`, { ok: 'Übernehmen', cancel: 'Alte Fläche behalten' })) p.flaeche = area;
           await saveParcel(p);
           state.selectedId = p.id;
           renderAll();
@@ -1017,16 +1082,16 @@
         } });
       }
       if (d.contactEdit) openContactForm(p, p.contacts.find((c) => c.id === d.contactEdit));
-      if (d.contactDel && confirm('Kontakt löschen?')) { p.contacts = p.contacts.filter((c) => c.id !== d.contactDel); await saveParcel(p); renderAll(); }
+      if (d.contactDel && await ask('Kontakt löschen?', { ok: 'Löschen', danger: true })) { p.contacts = p.contacts.filter((c) => c.id !== d.contactDel); await saveParcel(p); renderAll(); }
       if (d.docOpen) openDoc(d.docOpen, false);
       if (d.docDl) openDoc(d.docDl, true);
       if (d.docEdit) openDocMetaForm(null, p, state.documents.find((x) => x.id === d.docEdit));
-      if (d.docDel && confirm('Dokument löschen?')) {
+      if (d.docDel && await ask('Dokument löschen?', { ok: 'Löschen', danger: true })) {
         await DB.del('documents', d.docDel); await DB.del('blobs', d.docDel);
         state.documents = state.documents.filter((x) => x.id !== d.docDel); renderAll();
       }
       if (d.commentEdit) openCommentForm(p, state.comments.find((c) => c.id === d.commentEdit));
-      if (d.commentDel && confirm('Eintrag löschen?')) { await DB.del('comments', d.commentDel); state.comments = state.comments.filter((c) => c.id !== d.commentDel); renderAll(); }
+      if (d.commentDel && await ask('Eintrag löschen?', { ok: 'Löschen', danger: true })) { await DB.del('comments', d.commentDel); state.comments = state.comments.filter((c) => c.id !== d.commentDel); renderAll(); }
       if (d.fuDone) { e.preventDefault(); setFollowUpDone(d.fuDone); }
       if (d.fu) {
         e.preventDefault();
@@ -1043,7 +1108,7 @@
       if (!obj.text) return;
       await DB.put('comments', obj);
       state.comments.push(obj);
-      if (obj.author) localStorage.setItem('fi-author', obj.author);
+      if (obj.author) store.set('fi-author', obj.author);
       renderAll();
       toast('Eintrag gespeichert.');
     });
@@ -1066,11 +1131,11 @@
     initMap();
     bindEvents();
     try {
-      if (!localStorage.getItem('fi-seeded') && !(await DB.getAll('parcels')).length) await seedDemo();
+      if (!store.get('fi-seeded') && !(await DB.getAll('parcels')).length) await seedDemo();
       await loadAll();
     } catch (err) {
       console.error(err);
-      alert('Lokale Datenbank (IndexedDB) nicht verfügbar: ' + err.message);
+      toast('Lokale Datenbank nicht verfügbar: ' + err.message);
     }
     renderAll();
     fitAll();
