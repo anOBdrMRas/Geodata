@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flurstücks-Inventar</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true">◆</span>
+      <div>
+        <div class="brand-title">Flurstücks-Inventar</div>
+        <div class="brand-sub">Kieswerk · Grundstücksverwaltung (Prototyp)</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="map" role="tab">Karte</button>
+      <button class="tab" data-view="list" role="tab">Liste</button>
+      <button class="tab" data-view="followups" role="tab">Wiedervorlagen <span id="followup-badge" class="badge hidden">0</span></button>
+    </nav>
+    <div class="topbar-actions">
+      <button id="btn-new" class="btn primary">+ Flurstück</button>
+      <div class="menu">
+        <button id="btn-menu" class="btn ghost" aria-haspopup="true">Daten ▾</button>
+        <div id="menu-panel" class="menu-panel hidden">
+          <button data-action="export-backup">Sicherung exportieren (inkl. Dokumente)</button>
+          <button data-action="import-backup">Sicherung importieren …</button>
+          <hr>
+          <button data-action="import-geojson">Flurstücke aus GeoJSON importieren …</button>
+          <button data-action="export-geojson">Flurstücke als GeoJSON exportieren</button>
+          <button data-action="export-csv">Liste als CSV (Excel) exportieren</button>
+          <hr>
+          <button data-action="reset-demo">Demo-Daten neu laden</button>
+          <button data-action="clear-all" class="danger">Alle Daten löschen</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Kartenansicht -->
+    <section id="view-map" class="view active">
+      <div id="map"></div>
+      <div id="map-search" class="map-search">
+        <input id="map-search-input" type="search" placeholder="Flurstück, Eigentümer, Gemarkung suchen …" autocomplete="off">
+        <div id="map-search-results" class="search-results hidden"></div>
+      </div>
+      <div id="draw-bar" class="draw-bar hidden">
+        <span id="draw-hint">Klicken Sie die Eckpunkte des Flurstücks entlang der gelben Grenzen an. Doppelklick oder „Fertig“ schließt die Fläche.</span>
+        <button id="draw-undo" class="btn small">Punkt zurück</button>
+        <button id="draw-done" class="btn small primary">Fertig</button>
+        <button id="draw-cancel" class="btn small ghost">Abbrechen</button>
+      </div>
+      <div id="legend" class="legend"></div>
+    </section>
+
+    <!-- Listenansicht -->
+    <section id="view-list" class="view">
+      <div class="kpis" id="kpis"></div>
+      <div class="list-toolbar">
+        <input id="list-search" type="search" placeholder="Suchen (Flurstück, Gemarkung, Eigentümer, Notiz …)">
+        <select id="list-cat">
+          <option value="">Alle Kategorien</option>
+          <option value="eigen">Eigene Flurstücke</option>
+          <option value="fremd">Fremde Flurstücke</option>
+        </select>
+        <select id="list-status"><option value="">Alle Status</option></select>
+        <span id="list-count" class="muted"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="parcel-table">
+          <thead>
+            <tr>
+              <th data-sort="flurstueck">Flurstück</th>
+              <th data-sort="gemarkung">Gemarkung</th>
+              <th data-sort="flaeche" class="num">Fläche</th>
+              <th data-sort="kategorie">Kategorie</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="owner">Eigentümer / Kontakt</th>
+              <th data-sort="docs" class="num">Dok.</th>
+              <th data-sort="last">Letzter Eintrag</th>
+              <th data-sort="followup">Wiedervorlage</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Wiedervorlagen -->
+    <section id="view-followups" class="view">
+      <div class="page">
+        <h2>Wiedervorlagen</h2>
+        <p class="muted">Offene Nachfass-Termine aus den Verlaufseinträgen – z. B. „in 6 Monaten erneut beim Eigentümer nachfragen“.</p>
+        <div id="followup-list"></div>
+      </div>
+    </section>
+
+    <!-- Detailbereich -->
+    <aside id="drawer" class="drawer hidden" aria-label="Flurstücksdetails"></aside>
+  </main>
+
+  <!-- Dialog -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head"><h3 id="modal-title"></h3><button class="icon-btn" id="modal-close" aria-label="Schließen">✕</button></div>
+      <form id="modal-form"></form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <input type="file" id="file-import" class="hidden">
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/utm.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/demo-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
